@@ -183,7 +183,6 @@ def query_huggingface_llm(prompt, temperature=0.7):
                 timeout=15
             )
             data = response.json()
-            st.sidebar.json(data)  # ← affiche la vraie réponse pour débugger
             return data["choices"][0]["message"]["content"]
     except Exception as e:
         st.sidebar.warning(f"Erreur Groq: {e}. Passage en mode simulation.")
