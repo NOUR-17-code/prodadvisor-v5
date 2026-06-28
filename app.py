@@ -168,9 +168,6 @@ if df_pred_base is not None:
 # CONCEPTION RÉSILIENTE DU LLM (LOCAL GPU OU API HUGGING FACE AVEC FALLBACK)
 # =====================================================================
 def query_huggingface_llm(prompt, temperature=0.7):
-    """
-    Appelle Groq API (Llama 3.2 3B) - gratuit et compatible Streamlit Cloud
-    """
     try:
         api_key = st.secrets.get("GROQ_API_KEY", None)
         if api_key:
@@ -185,7 +182,9 @@ def query_huggingface_llm(prompt, temperature=0.7):
                 },
                 timeout=15
             )
-            return response.json()["choices"][0]["message"]["content"]
+            data = response.json()
+            st.sidebar.json(data)  # ← affiche la vraie réponse pour débugger
+            return data["choices"][0]["message"]["content"]
     except Exception as e:
         st.sidebar.warning(f"Erreur Groq: {e}. Passage en mode simulation.")
     
