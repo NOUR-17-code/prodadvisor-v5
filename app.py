@@ -175,7 +175,7 @@ def query_huggingface_llm(prompt, temperature=0.7):
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
-                    "model": "llama3-8b-8192",
+                    "model": "llama-3.1-8b-instant",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": float(temperature),
                     "max_tokens": 400
