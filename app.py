@@ -169,40 +169,27 @@ if df_pred_base is not None:
 # =====================================================================
 def query_huggingface_llm(prompt, temperature=0.7):
     """
-    Appelle l'API Anthropic Claude comme LLM de recommandation.
-    Compatible Streamlit Cloud — remplace l'appel HuggingFace.
+    Appelle Groq API (Llama 3.2 3B) - gratuit et compatible Streamlit Cloud
     """
-    import anthropic
-
     try:
-        api_key = st.secrets.get("ANTHROPIC_API_KEY", None)
-        if not api_key:
-            api_key = os.environ.get("ANTHROPIC_API_KEY", None)
-
+        api_key = st.secrets.get("GROQ_API_KEY", None)
         if api_key:
-            client = anthropic.Anthropic(api_key=api_key)
-
-            system_prompt = (
-                "Tu es l'expert MLOps et Conseiller Commercial senior de PRODADVISOR. "
-                "Ta mission est de rédiger une recommandation de stock claire, concise et exploitable "
-                "en te basant sur la demande prévue par TimeGPT, les filtres produits et l'historique des retours. "
-                "Réponds toujours en français avec un format structuré et professionnel."
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": "llama-3.2-3b-preview",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": float(temperature),
+                    "max_tokens": 400
+                },
+                timeout=15
             )
-
-            message = client.messages.create(
-                model="claude-haiku-4-5",
-                max_tokens=500,
-                temperature=float(temperature),
-                system=system_prompt,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return message.content[0].text
-
+            return response.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        st.sidebar.warning(f"Erreur API Anthropic: {e}. Passage en mode simulation.")
-
+        st.sidebar.warning(f"Erreur Groq: {e}. Passage en mode simulation.")
+    
     return generate_mock_llama_response(prompt, temperature)
-
 # =====================================================================
 # SIDEBAR : FILTRES & PARAMÈTRES INTERACTIFS
 # =====================================================================
