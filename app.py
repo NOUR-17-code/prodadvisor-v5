@@ -169,105 +169,39 @@ if df_pred_base is not None:
 # =====================================================================
 def query_huggingface_llm(prompt, temperature=0.7):
     """
-    Appelle l'API de démonstration Hugging Face Serverless ou simule l'inférence.
-    Permet un fonctionnement 100% stable en présentation de projet.
+    Appelle l'API Anthropic Claude comme LLM de recommandation.
+    Compatible Streamlit Cloud — remplace l'appel HuggingFace.
     """
-    # 1. Vérification du token Hugging Face dans secrets
+    import anthropic
+
     try:
-        hf_token = st.secrets.get("HF_TOKEN", None)
-    except Exception:
-        hf_token = os.environ.get("HF_TOKEN", None)
-    
-    if hf_token and hf_token != "YOUR_HF_TOKEN":
-        api_url = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
-        headers = {"Authorization": f"Bearer {hf_token}"}
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 300,
-                "temperature": float(temperature),
-                "top_p": 0.9,
-                "return_full_text": False
-            }
-        }
-        try:
-            response = requests.post(api_url, headers=headers, json=payload, timeout=10)
-            if response.status_code == 200:
-                result = response.json()
-                if isinstance(result, list) and len(result) > 0:
-                    return result[0].get('generated_text', '')
-                elif isinstance(result, dict):
-                    return result.get('generated_text', '')
-        except Exception as e:
-            st.sidebar.error(f"Erreur API Hugging Face: {e}. Passage en mode simulation.")
-            
-    # 2. Mode Simulation de Llama 3.2 fine-tuné (Fallback démo)
-    # Génère des réponses expertes basées sur les entrées utilisateurs
-    # Pour simuler le modèle QLoRA entraîné
+        api_key = st.secrets.get("ANTHROPIC_API_KEY", None)
+        if not api_key:
+            api_key = os.environ.get("ANTHROPIC_API_KEY", None)
+
+        if api_key:
+            client = anthropic.Anthropic(api_key=api_key)
+
+            system_prompt = (
+                "Tu es l'expert MLOps et Conseiller Commercial senior de PRODADVISOR. "
+                "Ta mission est de rédiger une recommandation de stock claire, concise et exploitable "
+                "en te basant sur la demande prévue par TimeGPT, les filtres produits et l'historique des retours. "
+                "Réponds toujours en français avec un format structuré et professionnel."
+            )
+
+            message = client.messages.create(
+                model="claude-haiku-4-5",
+                max_tokens=500,
+                temperature=float(temperature),
+                system=system_prompt,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return message.content[0].text
+
+    except Exception as e:
+        st.sidebar.warning(f"Erreur API Anthropic: {e}. Passage en mode simulation.")
+
     return generate_mock_llama_response(prompt, temperature)
-
-def generate_mock_llama_response(prompt, temperature):
-    """Générateur de réponse IA déterministe et stratégique pour simulation de démo"""
-    # Analyse basique du prompt pour adapter la réponse
-    category = "Produit"
-    for cat in ['Tops', 'Bottoms', 'Dresses', 'Shoes', 'Accessories', 'Outerwear']:
-        if cat in prompt:
-            category = cat
-            break
-            
-    season = "Saison"
-    for s in ['Spring', 'Summer', 'Fall', 'Winter']:
-        if s in prompt:
-            season = s
-            break
-            
-    demand_units = "45"
-    # Extraction naïve de la demande prévue
-    try:
-        parts = prompt.split("demande prévue par TimeGPT :")
-        if len(parts) > 1:
-            demand_units = parts[1].split()[0]
-    except:
-        pass
-        
-    return_rate = "12%"
-    try:
-        parts = prompt.split("historique de retours :")
-        if len(parts) > 1:
-            return_rate = parts[1].split("%")[0].strip() + "%"
-    except:
-        pass
-
-    # Adaptation selon la température (Conservateur vs Agressif)
-    if temperature < 0.4:
-        # Prudent
-        return f"""### 📋 [CONSEIL EXPERT PRODADVISOR] Recommandation Prudente (Température : {temperature})
-**Catégorie :** {category} | **Saison cible :** {season}
-
-**1. Ajustement des Stocks :**
-Au vu de la demande TimeGPT estimée à **{demand_units} unités** et d'un taux de retour historique de **{return_rate}**, nous préconisons une **approche sécuritaire**. Nous vous conseillons de stocker exactement **{int(float(demand_units) * 0.95)} unités**. 
-Cette baisse de 5% par rapport à la prévision brute limite le risque de surstockage lié aux retours potentiels de la catégorie {category}.
-
-**2. Gestion des Risques Opérationnels :**
-* Les retours étant fréquents sur cette catégorie, privilégiez un contrôle qualité renforcé lors de la réception des colis fournisseurs.
-* Conservez un stock de réserve tampon égal à 10% du volume pour satisfaire les échanges de tailles directs.
-
-**3. Action Commerciale :**
-Maintenez le prix d'origine sans démarque supplémentaire agressive pour préserver vos marges. Le niveau de demande actuel justifie la stabilité tarifaire."""
-    else:
-        # Agressif / Créatif
-        return f"""### 🚀 [CONSEIL EXPERT PRODADVISOR] Campagne Stratégique (Température : {temperature})
-**Catégorie :** {category} | **Saison cible :** {season}
-
-**1. Ajustement des Stocks :**
-La prévision brute de TimeGPT s'élève à **{demand_units} unités**. Afin de maximiser notre part de marché et de capter la forte réactivité de la demande lors des événements saisonniers de {season}, nous vous recommandons d'augmenter le stock initial à **{int(float(demand_units) * 1.15)} unités** (+15%).
-
-**2. Optimisation Promotionnelle (What-If) :**
-* Le taux de démarque simulé montre une élasticité positive. Nous vous conseillons de planifier des promotions ciblées en milieu de saison pour écouler le surplus.
-* Mettez en place une politique de retour simplifiée (boîtes de retour pré-affranchies) pour fluidifier le parcours client, malgré les **{return_rate}** de retours historiques constatés.
-
-**3. Campagne Marketing :**
-Exploitez un story-telling fort axé sur l'exclusivité des pièces pour créer un sentiment d'urgence d'achat auprès de vos segments clients VIP. Répartissez la communication sur les réseaux sociaux dès le début de la saison."""
 
 # =====================================================================
 # SIDEBAR : FILTRES & PARAMÈTRES INTERACTIFS
